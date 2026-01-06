@@ -30,7 +30,17 @@ classifiers = [
   "Topic :: Scientific/Engineering",
   "Typing :: Typed",
 ]
-dependencies = []
+dependencies = [
+    "fastapi>=0.115.8",
+    "notebook>=7.5.1",
+    "numpy>=2.2.6",
+    "pandas>=2.3.3",
+    "pyarrow>=22.0.0",
+    "python-dotenv>=1.2.1",
+    "scikit-learn==1.6.0",
+    "uvicorn>=0.40.0",
+    "zenml[server]>=0.93.0",
+]
 
 [project.urls]
 Homepage = "y"
