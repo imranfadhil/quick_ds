@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg17
+    restart: unless-stopped
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    ports:
+      - ${POSTGRES_PORT:-5432}:5432
+    networks:
+      - qds-network
+  
+  # The Backend API (FastAPI)
+  api:
+    build: .
+    command: uvicorn src.apps.api.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+
+  # The Frontend (Reflex or Streamlit)
+  frontend:
+    build: .
+    command: streamlit run src/apps/ui/app.py
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+
+  # ZenML Local Dashboard (Optional service for visibility)
+  zenml-ui:
+    image: zenmldocker/zenml-server
+    ports:
+      - "8080:8080"
+
+  langflow:
+    profiles:
+      - langflow  # enable with `--profile langflow` on docker-compose command line
+    image: langflowai/langflow:latest  # or another version tag on https://hub.docker.com/r/langflowai/langflow
+    restart: unless-stopped
+    pull_policy: always  # set to 'always' when using 'latest' image
+    ports:
+      - "7860:7860"
+    depends_on:
+      - qds-backend
+    environment:
+      - LANGFLOW_DATABASE_URL=${QDS_DATABASE_URL}
+      - LANGFLOW_SECRET_KEY=${LANGFLOW_SECRET_KEY}
+      - LANGFLOW_SKIP_AUTH_AUTO_LOGIN=${LANGFLOW_SKIP_AUTH_AUTO_LOGIN}
+      - LANGFLOW_SUPERUSER=${LANGFLOW_SUPERUSER}
+      - LANGFLOW_SUPERUSER_PASSWORD=${LANGFLOW_SUPERUSER_PASSWORD}
+      # This variable defines where the logs, file storage, monitor data and secret keys are stored.
+      - LANGFLOW_CONFIG_DIR=app/langflow
+    volumes:
+      - ./data/langflow:/app/langflow
+    networks:
+      - qds-network

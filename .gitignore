@@ -1,3 +1,9 @@
+.viz/**
+data/02_intermediate/**
+data/03_primary/**
+data/06_models/**
+data/08_reporting/**
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
