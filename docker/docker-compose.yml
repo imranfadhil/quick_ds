@@ -1,0 +1,24 @@
+services:
+  # The Backend API (FastAPI)
+  api:
+    build: .
+    command: uvicorn src.apps.api.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+
+  # The Frontend (Reflex or Streamlit)
+  frontend:
+    build: .
+    command: streamlit run src/apps/ui/app.py
+    ports:
+      - "8501:8501"
+    depends_on:
+      - api
+
+  # ZenML Local Dashboard (Optional service for visibility)
+  zenml-ui:
+    image: zenmldev/zenml-server
+    ports:
+      - "8080:8080"
