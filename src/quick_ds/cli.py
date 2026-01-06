@@ -16,6 +16,10 @@
 #
 
 import os
+import sys
+from importlib import metadata
+from pathlib import Path
+from subprocess import Popen
 from typing import Optional
 
 import click
@@ -31,6 +35,30 @@ from quick_ds.pipelines import (
 )
 
 logger = get_logger(__name__)
+
+try:
+    quick_dsVersion = metadata.version("quick_ds")
+except metadata.PackageNotFoundError:
+    quick_dsVersion = "0.0.0"
+
+
+FRONTEND_DIR = Path(__file__).parent / "apps" / "ui"
+
+
+@click.group()
+@click.version_option(
+    prog_name="quick_ds",
+    version=quick_dsVersion,
+    message="%(prog)s version: %(version)s",
+)
+def cli():
+    """
+    Command-line interface for the quick_ds library.
+
+    Provides commands to run the web application, manage MLflow servers,
+    and execute machine learning pipelines for training and prediction.
+    """
+    pass
 
 
 @click.command(
@@ -161,7 +189,7 @@ Examples:
     type=click.STRING,
     help="API key for the ZenML server. Required for the container to authenticate if not set in environment.",
 )
-def main(
+def zenml(
     train_dataset_name: str = "dataset_trn",
     train_dataset_version_name: Optional[str] = None,
     test_dataset_name: str = "dataset_tst",
@@ -338,5 +366,19 @@ def main(
         )
 
 
+@click.command()
+def frontend():
+    # Change to frontend directory and run npm run dev
+    cmd = "reflex run"
+    process = Popen(
+        cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True, cwd=str(FRONTEND_DIR)
+    )
+    process.wait()
+
+
+# Add commands to the CLI group
+cli.add_command(zenml)
+cli.add_command(frontend)
+
 if __name__ == "__main__":
-    main()
+    cli()
