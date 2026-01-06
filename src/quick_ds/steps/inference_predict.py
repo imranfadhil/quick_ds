@@ -51,5 +51,4 @@ def inference_predict(
     # run prediction from memory
     predictions = model.predict(dataset_inf)
 
-    predictions = pd.Series(predictions, name="predicted")
-    return predictions
+    return pd.Series(predictions, name="predicted")

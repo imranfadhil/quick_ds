@@ -15,7 +15,6 @@
 # limitations under the License.
 #
 
-from typing import Optional
 from uuid import UUID
 
 from zenml import pipeline
@@ -32,10 +31,10 @@ logger = get_logger(__name__)
 
 @pipeline
 def training(
-    train_dataset_id: Optional[UUID] = None,
-    test_dataset_id: Optional[UUID] = None,
-    target: Optional[str] = "target",
-    model_type: Optional[str] = "sgd",
+    train_dataset_id: UUID | None = None,
+    test_dataset_id: UUID | None = None,
+    target: str | None = "target",
+    model_type: str | None = "sgd",
 ):
     """
     Model training pipeline.

@@ -30,8 +30,8 @@ logger = get_logger(__name__)
 @pipeline(enable_cache=False)  # Disable caching for the entire pipeline
 def local_deployment(
     model_name: str,
-    zenml_server_url: str = None,
-    zenml_api_key: str = None,
+    zenml_server_url: str | None = None,
+    zenml_api_key: str | None = None,
     model_stage: str = "production",
     model_artifact_name: str = "sklearn_classifier",
     preprocess_pipeline_name: str = "preprocess_pipeline",
@@ -58,7 +58,7 @@ def local_deployment(
     if zenml_server_url is None:
         client = Client()
         zenml_server_url = client.zen_store.url
-        logger.info(f"Using current ZenML server URL: {zenml_server_url}")
+        logger.info("Using current ZenML server URL: %s", zenml_server_url)
 
     # Validate API key is provided
     if zenml_api_key is None:
@@ -75,7 +75,7 @@ def local_deployment(
     )
 
     # Run the deployment container and log metadata
-    container_id, service_url = run_deployment_container(
+    _, service_url = run_deployment_container(
         zenml_server_url=zenml_server_url,
         zenml_api_key=zenml_api_key,
         model_name=model_name,
@@ -87,6 +87,6 @@ def local_deployment(
         container_port=container_port,
     )
 
-    logger.info(f"Model '{model_name}:{model_stage}' deployed successfully!")
-    logger.info(f"Service URL: {service_url}")
-    logger.info(f"API Documentation: {service_url}/docs")
+    logger.info("Model '%s:%s' deployed successfully!", model_name, model_stage)
+    logger.info("Service URL: %s", service_url)
+    logger.info("API Documentation: %s/docs", service_url)

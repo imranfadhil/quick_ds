@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Annotated, Tuple
+from typing import Annotated
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
@@ -25,7 +25,7 @@ from zenml import step
 @step
 def data_splitter(
     dataset: pd.DataFrame, test_size: float = 0.2
-) -> Tuple[
+) -> tuple[
     Annotated[pd.DataFrame, "raw_dataset_trn"],
     Annotated[pd.DataFrame, "raw_dataset_tst"],
 ]:

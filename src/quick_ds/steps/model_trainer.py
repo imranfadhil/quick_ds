@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-from typing import Annotated, Optional
+from typing import Annotated
 
 import pandas as pd
 from sklearn.base import ClassifierMixin
@@ -32,7 +32,7 @@ logger = get_logger(__name__)
 def model_trainer(
     dataset_trn: pd.DataFrame,
     model_type: str = "sgd",
-    target: Optional[str] = "target",
+    target: str | None = "target",
 ) -> Annotated[
     ClassifierMixin,
     ArtifactConfig(name="sklearn_classifier", artifact_type=ArtifactType.MODEL),
@@ -63,7 +63,7 @@ def model_trainer(
         model = RandomForestClassifier()
     else:
         raise ValueError(f"Unknown model type {model_type}")
-    logger.info(f"Training model {model}...")
+    logger.info("Training model %s...", model)
 
     model.fit(
         dataset_trn.drop(columns=[target]),

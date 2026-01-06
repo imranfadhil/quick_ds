@@ -14,9 +14,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from typing import List, Optional
-
 from zenml import pipeline
 from zenml.logger import get_logger
 
@@ -32,10 +29,10 @@ logger = get_logger(__name__)
 @pipeline
 def feature_engineering(
     test_size: float = 0.2,
-    drop_na: Optional[bool] = None,
-    normalize: Optional[bool] = None,
-    drop_columns: Optional[List[str]] = None,
-    target: Optional[str] = "target",
+    drop_na: bool | None = None,
+    normalize: bool | None = None,
+    drop_columns: list[str] | None = None,
+    target: str = "target",
     random_state: int = 17,
 ):
     """

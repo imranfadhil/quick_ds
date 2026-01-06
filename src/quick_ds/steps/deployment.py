@@ -17,7 +17,10 @@
 
 import datetime
 import os
-from typing import Annotated, Tuple
+import shutil
+import time
+from pathlib import Path
+from typing import Annotated
 
 import docker
 from zenml import log_metadata, step
@@ -35,7 +38,7 @@ def get_deployment_config(
     model_stage: str,
     secret_name: str = "deployment_service_key",
     secret_key: str = "key",
-) -> Tuple[
+) -> tuple[
     Annotated[str, "zenml_server_url"],
     Annotated[str, "zenml_api_key"],
     Annotated[str, "model_name"],
@@ -50,7 +53,7 @@ def get_deployment_config(
         secret_key: Key within the ZenML Secret that holds the actual API key value.
 
     Returns:
-        Tuple containing ZenML server URL, API key, model name, and model stage.
+        tuple containing ZenML server URL, API key, model name, and model stage.
 
     Raises:
         RuntimeError: If the specified secret or key is not found.
@@ -100,9 +103,7 @@ def get_deployment_config(
 """
 
 
-@step(
-    enable_cache=False
-)  # Avoid caching image builds unless inputs are identical
+@step(enable_cache=False)  # Avoid caching image builds unless inputs are identical
 def build_deployment_image(
     model_name: str,
     model_stage: str,
@@ -118,47 +119,40 @@ def build_deployment_image(
     """
     # Define image name based on model name and stage
     image_name = f"local-deployment-{model_name}:{model_stage}"
-    logger.info(f"Building Docker image: {image_name}")
+    logger.info("Building Docker image: %s", image_name)
 
     # Define paths relative to the project root
     # Assumes this script is in 'steps/' and 'api/' is at the project root
-    project_root = os.path.join(os.path.dirname(__file__), "..")
-    build_context_path = os.path.abspath(os.path.join(project_root, "api"))
-    dockerfile_path = os.path.abspath(
-        os.path.join(build_context_path, "Dockerfile")
-    )
-    utils_path = os.path.abspath(os.path.join(project_root, "utils"))
+    project_root = Path(Path.parent(__file__), "..")
+    build_context_path = Path.resolve(Path(project_root, "api"))
+    dockerfile_path = Path.resolve(Path(build_context_path, "Dockerfile"))
+    utils_path = Path.resolve(Path(project_root, "utils"))
 
-    logger.info(f"Using build context: {build_context_path}")
-    logger.info(f"Using Dockerfile: {dockerfile_path}")
-    logger.info(f"Utils module path: {utils_path}")
+    logger.info("Using build context: %s", build_context_path)
+    logger.info("Using Dockerfile: %s", dockerfile_path)
+    logger.info("Utils module path: %s", utils_path)
 
     # Check if Dockerfile exists
-    if not os.path.exists(dockerfile_path):
+    if not Path.exists(dockerfile_path):
         raise FileNotFoundError(f"Dockerfile not found at: {dockerfile_path}")
 
     # Copy the utils directory to the api directory so it's available in the build context
-    utils_in_context = os.path.join(build_context_path, "utils")
+    utils_in_context = Path(build_context_path, "utils")
 
     # Create utils directory in the build context if it doesn't exist
-    if not os.path.exists(utils_in_context):
-        os.makedirs(utils_in_context, exist_ok=True)
-        logger.info(
-            f"Created utils directory in build context: {utils_in_context}"
-        )
+    if not Path.exists(utils_in_context):
+        Path.mkdir(utils_in_context, exist_ok=True)
+        logger.info("Created utils directory in build context: %s", utils_in_context)
 
-    # Copy utils module files
-    import shutil
-
-    for item in os.listdir(utils_path):
-        src = os.path.join(utils_path, item)
-        dst = os.path.join(utils_in_context, item)
-        if os.path.isfile(src):
+    for item in Path.iterdir(utils_path):
+        src = Path(utils_path, item)
+        dst = Path(utils_in_context, item)
+        if Path.isfile(src):
             shutil.copy2(src, dst)
-            logger.info(f"Copied {src} to {dst}")
-        elif os.path.isdir(src):
+            logger.info("Copied %s to %s", src, dst)
+        elif Path.isdir(src):
             shutil.copytree(src, dst, dirs_exist_ok=True)
-            logger.info(f"Copied directory {src} to {dst}")
+            logger.info("Copied directory %s to %s", src, dst)
 
     try:
         # Build the image using ZenML's utility
@@ -169,11 +163,9 @@ def build_deployment_image(
             # Add any custom build options if needed, e.g.:
             # custom_build_options={"platform": "linux/amd64"}
         )
-        logger.info(f"Successfully built Docker image: {image_name}")
+        logger.info("Successfully built Docker image: %s", image_name)
     except Exception as e:
-        logger.error(
-            f"Failed to build Docker image '{image_name}'. Error: {e}"
-        )
+        logger.error(f"Failed to build Docker image '{image_name}'. Error: {e}")
         raise RuntimeError(f"Docker image build failed: {e}") from e
 
     return image_name
@@ -191,7 +183,7 @@ def run_deployment_container(
     preprocess_pipeline_name: str = "preprocess_pipeline",
     host_port: int = 8000,
     container_port: int = 8000,
-) -> Tuple[
+) -> tuple[
     Annotated[str, "container_id"],
     Annotated[str, "service_url"],
 ]:
@@ -209,9 +201,9 @@ def run_deployment_container(
         container_port: Port the container is listening on.
 
     Returns:
-        Tuple containing the container ID and service URL.
+        tuple containing the container ID and service URL.
     """
-    logger.info(f"Preparing to run container from image: {image_name}")
+    logger.info("Preparing to run container from image: %s", image_name)
 
     # Create a Docker client
     client = docker.from_env()
@@ -219,7 +211,7 @@ def run_deployment_container(
     # Check if the image exists
     try:
         client.images.get(image_name)
-        logger.info(f"Found Docker image: {image_name}")
+        logger.info("Found Docker image: %s", image_name)
     except docker.errors.ImageNotFound:
         raise RuntimeError(
             f"Docker image '{image_name}' not found. Please build it first."
@@ -243,8 +235,8 @@ def run_deployment_container(
             if len(zenml_api_key) > 30
             else "***masked***"
         )
-        logger.info(f"Using ZenML server: {zenml_server_url}")
-        logger.info(f"Using API key (masked): {masked_key}")
+        logger.info("Using ZenML server: %s", zenml_server_url)
+        logger.info("Using API key (masked): %s", masked_key)
     else:
         logger.warning("No API key provided! Authentication will likely fail.")
 
@@ -252,17 +244,15 @@ def run_deployment_container(
     ports = {f"{container_port}/tcp": host_port}
 
     # Define a unique container name based on model name and stage
-    container_name = (
-        f"zenml-deployment-{model_name}-{model_stage}".lower().replace(
-            "_", "-"
-        )
+    container_name = f"zenml-deployment-{model_name}-{model_stage}".lower().replace(
+        "_", "-"
     )
 
     # Check if a container with this name already exists and remove it if it does
     try:
         existing_container = client.containers.get(container_name)
         logger.warning(
-            f"Found existing container '{container_name}'. Stopping and removing it."
+            "Found existing container '%s'. Stopping and removing it.", container_name
         )
         existing_container.stop()
         existing_container.remove()
@@ -273,7 +263,7 @@ def run_deployment_container(
     try:
         # Run the container
         logger.info(
-            f"Starting container '{container_name}' with image '{image_name}'"
+            "Starting container '%s' with image '%s'", container_name, image_name
         )
         container = client.containers.run(
             image=image_name,
@@ -287,8 +277,6 @@ def run_deployment_container(
         # Ensure the env vars are passed correctly
         logger.info("Verifying environment variables in the container...")
         # Give the container a moment to start
-        import time
-
         time.sleep(2)
 
         try:
@@ -305,10 +293,8 @@ def run_deployment_container(
                             if len(key) > 30
                             else "***masked***"
                         )
-                        logger.info(f"ZENML_STORE_API_KEY={masked}")
-                    elif line.startswith("ZENML_"):
-                        logger.info(line)
-                    elif line.startswith("MODEL_"):
+                        logger.info("ZENML_STORE_API_KEY=%s", masked)
+                    elif line.startswith("ZENML_") or line.startswith("MODEL_"):
                         logger.info(line)
         except Exception as e:
             logger.warning(f"Could not verify environment variables: {e}")
@@ -316,14 +302,16 @@ def run_deployment_container(
         container_id = container.id
         service_url = f"http://localhost:{host_port}"
 
-        logger.info(f"Container started successfully!")
-        logger.info(f"Container ID: {container_id}")
-        logger.info(f"Service URL: {service_url}")
-        logger.info(f"API Documentation: {service_url}/docs")
+        logger.info("Container started successfully!")
+        logger.info("Container ID: %s", container_id)
+        logger.info("Service URL: %s", service_url)
+        logger.info("API Documentation: %s/docs", service_url)
 
         # Log deployment metadata directly here instead of in a separate step
         logger.info(
-            f"Logging deployment metadata for model '{model_name}:{model_stage}'"
+            "Logging deployment metadata for model '%s:%s'",
+            model_name,
+            model_stage,
         )
 
         # Get updated container details
@@ -339,12 +327,8 @@ def run_deployment_container(
                 "api_docs_url": f"{service_url}/docs",
                 "container_id": container_id,
                 "container_name": container_info.get("Name", "").strip("/"),
-                "container_image": container_info.get("Config", {}).get(
-                    "Image", ""
-                ),
-                "container_status": container_info.get("State", {}).get(
-                    "Status", ""
-                ),
+                "container_image": container_info.get("Config", {}).get("Image", ""),
+                "container_status": container_info.get("State", {}).get("Status", ""),
                 "model_artifact_name": model_artifact_name,
             },
             "environment_info": {

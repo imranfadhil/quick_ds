@@ -14,13 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-import os
 import sys
 from importlib import metadata
 from pathlib import Path
 from subprocess import Popen
-from typing import Optional
 
 import click
 import yaml
@@ -191,21 +188,21 @@ Examples:
 )
 def zenml(
     train_dataset_name: str = "dataset_trn",
-    train_dataset_version_name: Optional[str] = None,
+    train_dataset_version_name: str | None = None,
     test_dataset_name: str = "dataset_tst",
-    test_dataset_version_name: Optional[str] = None,
+    test_dataset_version_name: str | None = None,
     feature_pipeline: bool = False,
     training_pipeline: bool = False,
     inference_pipeline: bool = False,
     no_cache: bool = False,
     deploy_locally: bool = False,
-    deployment_model_name: Optional[str] = None,
+    deployment_model_name: str | None = None,
     deployment_model_stage: str = "production",
     deployment_model_artifact_name: str = "sklearn_classifier",
     deployment_preprocess_pipeline_name: str = "preprocess_pipeline",
     deployment_port: int = 8000,
-    deployment_zenml_server: Optional[str] = None,
-    deployment_zenml_api_key: Optional[str] = None,
+    deployment_zenml_server: str | None = None,
+    deployment_zenml_api_key: str | None = None,
 ):
     """Main entry point for the pipeline execution.
 
@@ -238,19 +235,15 @@ def zenml(
     """
     client = Client()
 
-    config_folder = os.path.join(
-        os.path.dirname(os.path.realpath(__file__)),
-        "configs",
-    )
+    config_folder = Path(__file__).resolve().parent / "configs"
 
     # Execute Feature Engineering Pipeline
     if feature_pipeline:
         pipeline_args = {}
         if no_cache:
             pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = os.path.join(
-            config_folder, "feature_engineering.yaml"
-        )
+        pipeline_args["config_path"] = Path(config_folder, "feature_engineering.yaml")
+        print(pipeline_args["config_path"])
         run_args_feature = {}
         feature_engineering.with_options(**pipeline_args)(**run_args_feature)
         logger.info("Feature Engineering pipeline finished successfully!\n")
@@ -259,9 +252,13 @@ def zenml(
         test_dataset_artifact = client.get_artifact_version(test_dataset_name)
         logger.info(
             "The latest feature engineering pipeline produced the following "
-            f"artifacts: \n\n1. Train Dataset - Name: {train_dataset_name}, "
-            f"Version Name: {train_dataset_artifact.version} \n2. Test Dataset: "
-            f"Name: {test_dataset_name}, Version Name: {test_dataset_artifact.version}"
+            "artifacts: \n\n1. Train Dataset - Name: %s, "
+            "Version Name: %s \n2. Test Dataset: "
+            "Name: %s, Version Name: %s",
+            train_dataset_name,
+            train_dataset_artifact.version,
+            test_dataset_name,
+            test_dataset_artifact.version,
         )
 
     # Execute Training Pipeline
@@ -271,10 +268,8 @@ def zenml(
         # If train_dataset_version_name is specified, use versioned artifacts
         if train_dataset_version_name or test_dataset_version_name:
             # However, both train and test dataset versions must be specified
-            assert (
-                train_dataset_version_name is not None
-                and test_dataset_version_name is not None
-            )
+            assert train_dataset_version_name is not None
+            assert test_dataset_version_name is not None
             train_dataset_artifact_version = client.get_artifact_version(
                 train_dataset_name, train_dataset_version_name
             )
@@ -290,7 +285,7 @@ def zenml(
         pipeline_args = {}
         if no_cache:
             pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = os.path.join(config_folder, "training_sgd.yaml")
+        pipeline_args["config_path"] = Path(config_folder, "training_sgd.yaml")
         training.with_options(**pipeline_args)(**run_args_train)
         logger.info("Training pipeline with SGD finished successfully!\n\n")
 
@@ -298,20 +293,20 @@ def zenml(
         pipeline_args = {}
         if no_cache:
             pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = os.path.join(config_folder, "training_rf.yaml")
+        pipeline_args["config_path"] = Path(config_folder, "training_rf.yaml")
         training.with_options(**pipeline_args)(**run_args_train)
         logger.info("Training pipeline with RF finished successfully!\n\n")
 
     if inference_pipeline:
         run_args_inference = {}
         pipeline_args = {"enable_cache": False}
-        pipeline_args["config_path"] = os.path.join(config_folder, "inference.yaml")
+        pipeline_args["config_path"] = Path(config_folder, "inference.yaml")
 
         # Configure the pipeline
         inference_configured = inference.with_options(**pipeline_args)
 
         # Fetch the production model
-        with open(pipeline_args["config_path"], "r") as f:
+        with pipeline_args["config_path"].open("r") as f:
             config = yaml.load(f, Loader=yaml.SafeLoader)
         zenml_model = client.get_model_version(
             config["model"]["name"], config["model"]["version"]
@@ -332,10 +327,11 @@ def zenml(
     if deploy_locally:
         # Ensure model name is provided
         if not deployment_model_name:
-            raise ValueError(
+            msg = (
                 "Model name must be provided for local deployment. "
                 "Use --deployment-model-name to specify the model name."
             )
+            raise ValueError(msg)
 
         pipeline_args = {}
         if no_cache:
@@ -343,7 +339,7 @@ def zenml(
 
         # ZenML requires a config, but we don't need a specific one for deployment
         # So we'll just use a default config path, or later you can create a deployment.yaml
-        # pipeline_args["config_path"] = os.path.join(config_folder, "deployment.yaml")
+        # pipeline_args["config_path"] = Path(config_folder, "deployment.yaml")
 
         run_args_deployment = {
             "model_name": deployment_model_name,
@@ -359,10 +355,14 @@ def zenml(
         local_deployment.with_options(**pipeline_args)(**run_args_deployment)
 
         logger.info(
-            f"Local deployment pipeline for model '{deployment_model_name}:{deployment_model_stage}' "
-            f"finished successfully!\n\n"
-            f"The model is now accessible via FastAPI at http://localhost:{deployment_port}\n"
-            f"API documentation is available at http://localhost:{deployment_port}/docs"
+            "Local deployment pipeline for model '%s:%s' "
+            "finished successfully!\n\n"
+            "The model is now accessible via FastAPI at http://localhost:%s\n"
+            "API documentation is available at http://localhost:%s/docs",
+            deployment_model_name,
+            deployment_model_stage,
+            deployment_port,
+            deployment_port,
         )
 
 

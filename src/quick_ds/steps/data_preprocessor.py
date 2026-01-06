@@ -14,7 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-from typing import Annotated, List, Optional, Tuple
+from typing import Annotated
 
 import pandas as pd
 from sklearn.pipeline import Pipeline
@@ -29,11 +29,11 @@ def data_preprocessor(
     random_state: int,
     dataset_trn: pd.DataFrame,
     dataset_tst: pd.DataFrame,
-    drop_na: Optional[bool] = None,
-    normalize: Optional[bool] = None,
-    drop_columns: Optional[List[str]] = None,
-    target: Optional[str] = "target",
-) -> Tuple[
+    drop_na: bool | None = None,
+    normalize: bool | None = None,
+    drop_columns: list[str] | None = None,
+    target: str = "target",
+) -> tuple[
     Annotated[pd.DataFrame, "dataset_trn"],
     Annotated[pd.DataFrame, "dataset_tst"],
     Annotated[Pipeline, "preprocess_pipeline"],

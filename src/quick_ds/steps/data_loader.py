@@ -54,9 +54,9 @@ def data_loader(
     inference_subset = dataset.sample(inference_size, random_state=random_state)
     if is_inference:
         dataset = inference_subset
-        dataset.drop(columns=target, inplace=True)
+        dataset = dataset.drop(columns=target)
     else:
-        dataset.drop(inference_subset.index, inplace=True)
-    dataset.reset_index(drop=True, inplace=True)
-    logger.info(f"Dataset with {len(dataset)} records loaded!")
+        dataset = dataset.drop(inference_subset.index)
+    dataset = dataset.reset_index(drop=True)
+    logger.info("Dataset with %d records loaded!", len(dataset))
     return dataset

@@ -15,8 +15,6 @@
 # limitations under the License.
 #
 
-from typing import Optional
-
 import pandas as pd
 from sklearn.base import ClassifierMixin
 from zenml import log_metadata, step
@@ -33,7 +31,7 @@ def model_evaluator(
     dataset_tst: pd.DataFrame,
     min_train_accuracy: float = 0.0,
     min_test_accuracy: float = 0.0,
-    target: Optional[str] = "target",
+    target: str = "target",
 ) -> float:
     """Evaluate a trained model.
 
@@ -79,8 +77,8 @@ def model_evaluator(
         dataset_tst.drop(columns=[target]),
         dataset_tst[target],
     )
-    logger.info(f"Train accuracy={trn_acc * 100:.2f}%")
-    logger.info(f"Test accuracy={tst_acc * 100:.2f}%")
+    logger.info("Train accuracy=%.2f%%", trn_acc * 100)
+    logger.info("Test accuracy=%.2f%%", tst_acc * 100)
 
     messages = []
     if trn_acc < min_train_accuracy:
