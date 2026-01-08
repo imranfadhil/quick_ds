@@ -21,17 +21,18 @@ from subprocess import Popen
 
 import click
 import yaml
+from dotenv import load_dotenv
 from zenml.client import Client
 from zenml.logger import get_logger
 
 from quick_ds.pipelines import (
     feature_engineering,
     inference,
-    local_deployment,
     training,
 )
 
 logger = get_logger(__name__)
+load_dotenv()
 
 try:
     quick_dsVersion = metadata.version("quick_ds")
@@ -133,58 +134,10 @@ Examples:
     help="Whether to run the pipeline that performs inference.",
 )
 @click.option(
-    "--no-cache",
+    "--use-cache",
     is_flag=True,
     default=False,
     help="Disable caching for the pipeline run.",
-)
-@click.option(
-    "--deploy-locally",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that deploys a model locally with FastAPI.",
-)
-@click.option(
-    "--deployment-model-name",
-    default=None,
-    type=click.STRING,
-    help="Name of the model to deploy locally. Required if --deploy-locally is set.",
-)
-@click.option(
-    "--deployment-model-stage",
-    default="production",
-    type=click.STRING,
-    help="Stage of the model to deploy (default: 'production').",
-)
-@click.option(
-    "--deployment-model-artifact-name",
-    default="sklearn_classifier",
-    type=click.STRING,
-    help="Name of the model artifact to load (default: 'sklearn_classifier').",
-)
-@click.option(
-    "--deployment-preprocess-pipeline-name",
-    default="preprocess_pipeline",
-    type=click.STRING,
-    help="Name of the preprocessing pipeline artifact to load (default: 'preprocess_pipeline').",
-)
-@click.option(
-    "--deployment-port",
-    default=8000,
-    type=click.INT,
-    help="Port to expose the deployment server on (default: 8000).",
-)
-@click.option(
-    "--deployment-zenml-server",
-    default=None,
-    type=click.STRING,
-    help="URL of the ZenML server to use for deployment. If not provided, uses the current client's server.",
-)
-@click.option(
-    "--deployment-zenml-api-key",
-    default=None,
-    type=click.STRING,
-    help="API key for the ZenML server. Required for the container to authenticate if not set in environment.",
 )
 def zenml(
     train_dataset_name: str = "dataset_trn",
@@ -194,15 +147,7 @@ def zenml(
     feature_pipeline: bool = False,
     training_pipeline: bool = False,
     inference_pipeline: bool = False,
-    no_cache: bool = False,
-    deploy_locally: bool = False,
-    deployment_model_name: str | None = None,
-    deployment_model_stage: str = "production",
-    deployment_model_artifact_name: str = "sklearn_classifier",
-    deployment_preprocess_pipeline_name: str = "preprocess_pipeline",
-    deployment_port: int = 8000,
-    deployment_zenml_server: str | None = None,
-    deployment_zenml_api_key: str | None = None,
+    use_cache: bool = False,
 ):
     """Main entry point for the pipeline execution.
 
@@ -223,7 +168,7 @@ def zenml(
         feature_pipeline: Whether to run the pipeline that creates the dataset.
         training_pipeline: Whether to run the pipeline that trains the model.
         inference_pipeline: Whether to run the pipeline that performs inference.
-        no_cache: If `True` cache will be disabled.
+        use_cache: If `True` cache will be used.
         deploy_locally: Whether to run the pipeline that deploys a model locally with FastAPI.
         deployment_model_name: Name of the model to deploy locally.
         deployment_model_stage: Stage of the model to deploy.
@@ -240,10 +185,9 @@ def zenml(
     # Execute Feature Engineering Pipeline
     if feature_pipeline:
         pipeline_args = {}
-        if no_cache:
+        if not use_cache:
             pipeline_args["enable_cache"] = False
         pipeline_args["config_path"] = Path(config_folder, "feature_engineering.yaml")
-        print(pipeline_args["config_path"])
         run_args_feature = {}
         feature_engineering.with_options(**pipeline_args)(**run_args_feature)
         logger.info("Feature Engineering pipeline finished successfully!\n")
@@ -283,7 +227,7 @@ def zenml(
 
         # Run the SGD pipeline
         pipeline_args = {}
-        if no_cache:
+        if not use_cache:
             pipeline_args["enable_cache"] = False
         pipeline_args["config_path"] = Path(config_folder, "training_sgd.yaml")
         training.with_options(**pipeline_args)(**run_args_train)
@@ -291,7 +235,7 @@ def zenml(
 
         # Run the RF pipeline
         pipeline_args = {}
-        if no_cache:
+        if not use_cache:
             pipeline_args["enable_cache"] = False
         pipeline_args["config_path"] = Path(config_folder, "training_rf.yaml")
         training.with_options(**pipeline_args)(**run_args_train)
@@ -324,52 +268,11 @@ def zenml(
         inference_configured(**run_args_inference)
         logger.info("Inference pipeline finished successfully!")
 
-    if deploy_locally:
-        # Ensure model name is provided
-        if not deployment_model_name:
-            msg = (
-                "Model name must be provided for local deployment. "
-                "Use --deployment-model-name to specify the model name."
-            )
-            raise ValueError(msg)
-
-        pipeline_args = {}
-        if no_cache:
-            pipeline_args["enable_cache"] = False
-
-        # ZenML requires a config, but we don't need a specific one for deployment
-        # So we'll just use a default config path, or later you can create a deployment.yaml
-        # pipeline_args["config_path"] = Path(config_folder, "deployment.yaml")
-
-        run_args_deployment = {
-            "model_name": deployment_model_name,
-            "model_stage": deployment_model_stage,
-            "model_artifact_name": deployment_model_artifact_name,
-            "preprocess_pipeline_name": deployment_preprocess_pipeline_name,
-            "host_port": deployment_port,
-            "zenml_server_url": deployment_zenml_server,
-            "zenml_api_key": deployment_zenml_api_key,
-        }
-
-        # Run the deployment pipeline
-        local_deployment.with_options(**pipeline_args)(**run_args_deployment)
-
-        logger.info(
-            "Local deployment pipeline for model '%s:%s' "
-            "finished successfully!\n\n"
-            "The model is now accessible via FastAPI at http://localhost:%s\n"
-            "API documentation is available at http://localhost:%s/docs",
-            deployment_model_name,
-            deployment_model_stage,
-            deployment_port,
-            deployment_port,
-        )
-
 
 @click.command()
-def frontend():
+def backend():
     # Change to frontend directory and run npm run dev
-    cmd = "reflex run"
+    cmd = "uvicorn quick_ds.apps.api.main:app --host 0.0.0.0 --port 5086 "
     process = Popen(
         cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True, cwd=str(FRONTEND_DIR)
     )
@@ -378,7 +281,7 @@ def frontend():
 
 # Add commands to the CLI group
 cli.add_command(zenml)
-cli.add_command(frontend)
+cli.add_command(backend)
 
 if __name__ == "__main__":
     cli()

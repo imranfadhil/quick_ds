@@ -3,6 +3,8 @@ data/02_intermediate/**
 data/03_primary/**
 data/06_models/**
 data/08_reporting/**
+data/postgres/**
+data/zenml-server/**
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

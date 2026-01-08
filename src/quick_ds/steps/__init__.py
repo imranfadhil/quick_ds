@@ -24,10 +24,6 @@ from .data_preprocessor import (
 from .data_splitter import (
     data_splitter,
 )
-from .deployment import (
-    build_deployment_image,
-    run_deployment_container,
-)
 from .inference_predict import (
     inference_predict,
 )

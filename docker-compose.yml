@@ -14,16 +14,20 @@ services:
       - qds-network
   
   # The Backend API (FastAPI)
-  api:
+  backend:
+    profiles:
+      - disabled
     build: .
-    command: uvicorn src.apps.api.main:app --host 0.0.0.0 --port 8000
+    command: uvicorn src.quick_ds.apps.api.main:app --host 0.0.0.0 --port 5086
     volumes:
       - .:/app
     ports:
-      - "8000:8000"
+      - "5086:5086"
 
   # The Frontend (Reflex or Streamlit)
   frontend:
+    profiles:
+      - disabled
     build: .
     command: streamlit run src/apps/ui/app.py
     ports:
@@ -36,6 +40,19 @@ services:
     image: zenmldocker/zenml-server
     ports:
       - "8080:8080"
+    environment:
+      - ZENML_SERVER_AUTO_ACTIVATE=1
+      - ZENML_DEFAULT_USER_NAME=admin
+      - ZENML_DEFAULT_USER_PASSWORD=${POSTGRES_PASSWORD}
+    #   - ZENML_STORE_URL=${QDS_DATABASE_URL}
+    # links:
+    #   - postgres
+    # depends_on:
+    #   - postgres
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+    volumes:
+      - ./data/zenml-server:/zenml/.zenconfig/local_stores/default_zen_store
 
   langflow:
     profiles:

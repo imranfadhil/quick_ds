@@ -1,9 +1,10 @@
 import datetime
 import os
 from contextlib import asynccontextmanager
-from typing import Any, Dict, List, Union
+from typing import Any
 
 import numpy as np
+from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from zenml import log_metadata
@@ -16,9 +17,10 @@ logger = zenml_get_logger(__name__)
 # Basic logging configuration (adjust as needed)
 # logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO").upper())
 # logger = logging.getLogger(__name__)
+load_dotenv()
 
 # --- Configuration ---
-MODEL_NAME = os.getenv("MODEL_NAME")
+MODEL_NAME = os.getenv("MODEL_NAME", "breast_cancer_classifier")
 MODEL_STAGE = os.getenv("MODEL_STAGE", "production")  # Default to production
 MODEL_ARTIFACT_NAME = os.getenv(
     "MODEL_ARTIFACT_NAME", "sklearn_classifier"
@@ -62,7 +64,7 @@ def convert_to_serializable(obj):
 class FeaturesPayload(BaseModel):
     # Expecting a single instance/row for prediction
     # Adjust structure based on your model's expected input (e.g., dict, list of lists)
-    features: List[Any]  # Using Any for flexibility, refine if possible
+    features: list[Any]  # Using Any for flexibility, refine if possible
 
     # Example for sklearn models often expecting a list of lists (even for one sample)
     # features: List[List[float]]
@@ -71,7 +73,7 @@ class FeaturesPayload(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    prediction: Union[int, float, str, bool, List[Any], Dict[str, Any]]
+    prediction: int | float | str | bool | list[Any] | dict[str, Any]
 
 
 class DebugResponse(BaseModel):
@@ -99,20 +101,16 @@ async def lifespan(app: FastAPI):
     else:
         masked_key = "Not set"
 
-    logger.info(f"Environment variables:")
-    logger.info(f"MODEL_NAME: {MODEL_NAME}")
-    logger.info(f"MODEL_STAGE: {MODEL_STAGE}")
-    logger.info(f"MODEL_ARTIFACT_NAME: {MODEL_ARTIFACT_NAME}")
-    logger.info(f"ZENML_STORE_URL: {zenml_url}")
-    logger.info(f"ZENML_STORE_API_KEY: {masked_key}")
-    logger.info(
-        f"ZENML_CONFIG_DIR: {os.getenv('ZENML_CONFIG_DIR', 'Not set')}"
-    )
+    logger.info("Environment variables:")
+    logger.info("MODEL_NAME: %s", MODEL_NAME)
+    logger.info("MODEL_STAGE: %s", MODEL_STAGE)
+    logger.info("MODEL_ARTIFACT_NAME: %s", MODEL_ARTIFACT_NAME)
+    logger.info("ZENML_STORE_URL: %s", zenml_url)
+    logger.info("ZENML_STORE_API_KEY: %s", masked_key)
+    logger.info("ZENML_CONFIG_DIR: %s", os.getenv("ZENML_CONFIG_DIR", "Not set"))
 
     try:
-        logger.info(
-            f"Attempting to load model '{MODEL_NAME}' version '{MODEL_STAGE}'."
-        )
+        logger.info("Attempting to load model %s version %s.", MODEL_NAME, MODEL_STAGE)
         # Ensure environment variables for ZenML connection are set externally
         client = Client()  # Client automatically uses ENV vars if set
         model_version = client.get_model_version(MODEL_NAME, MODEL_STAGE)
@@ -136,9 +134,7 @@ async def lifespan(app: FastAPI):
             app_state["preprocess_pipeline"] = model_version.get_artifact(
                 preprocess_name
             ).load()
-            logger.info(
-                f"Successfully loaded preprocessing pipeline artifact."
-            )
+            logger.info(f"Successfully loaded preprocessing pipeline artifact.")
         except Exception as e:
             logger.warning(
                 f"Failed to load preprocessing pipeline: {e}. Predictions may require pre-processed input."
@@ -146,9 +142,7 @@ async def lifespan(app: FastAPI):
             app_state["preprocess_pipeline"] = None
 
     except Exception as e:
-        logger.error(
-            f"Failed to load model during startup: {e}", exc_info=True
-        )
+        logger.error(f"Failed to load model during startup: {e}", exc_info=True)
         # Decide if the app should fail to start or continue without a model
         # Option 1: Raise exception to stop startup
         raise RuntimeError(f"Model loading failed: {e}")
@@ -217,16 +211,12 @@ async def predict(payload: FeaturesPayload):
             logger.debug("Applying preprocessing pipeline to input data")
             try:
                 # Now the preprocessing pipeline should be properly loaded with transform() method
-                data_to_predict = preprocess_pipeline.transform(
-                    data_to_predict
-                )
+                data_to_predict = preprocess_pipeline.transform(data_to_predict)
                 logger.debug(f"Data after preprocessing: {data_to_predict}")
             except Exception as e:
                 logger.error(f"Error applying preprocessing: {e}")
                 # Fall back to using the raw input if preprocessing fails
-                logger.warning(
-                    "Falling back to raw input without preprocessing"
-                )
+                logger.warning("Falling back to raw input without preprocessing")
 
         # Make prediction with the model
         prediction_result = model.predict(data_to_predict)
@@ -271,24 +261,18 @@ async def predict(payload: FeaturesPayload):
             # Don't fail the API call if metadata logging fails
             logger.warning(f"Failed to log prediction metadata: {log_error}")
 
-        logger.debug(
-            f"Prediction result (serializable): {serializable_prediction}"
-        )
+        logger.debug(f"Prediction result (serializable): {serializable_prediction}")
         return PredictionResponse(prediction=serializable_prediction)
 
     except Exception as e:
         logger.error(f"Prediction failed: {e}", exc_info=True)
-        raise HTTPException(
-            status_code=500, detail=f"Prediction error: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Prediction error: {str(e)}")
 
 
 # Optional: Add a root endpoint for basic info
 @app.get("/")
 async def read_root():
-    return {
-        "message": f"Welcome to the prediction API for model '{MODEL_NAME}'"
-    }
+    return {"message": f"Welcome to the prediction API for model '{MODEL_NAME}'"}
 
 
 @app.get("/debug", response_model=DebugResponse)
@@ -318,9 +302,7 @@ async def debug_connection():
             # Try to get the current user, which requires authentication
             try:
                 user = client.zen_store.get_user()
-                result["connection_test"] = (
-                    f"Success - authenticated as {user.name}"
-                )
+                result["connection_test"] = f"Success - authenticated as {user.name}"
             except Exception as e:
                 result["connection_test"] = "Failed - Authentication error"
                 result["error_details"] = str(e)
@@ -344,7 +326,7 @@ if __name__ == "__main__":
     uvicorn.run(
         "main:app",
         host="0.0.0.0",
-        port=int(os.getenv("PORT", 8000)),
+        port=int(os.getenv("PORT", "8000")),
         reload=True,  # Enable reload for development convenience
         log_level=os.getenv("LOG_LEVEL", "info").lower(),
     )
