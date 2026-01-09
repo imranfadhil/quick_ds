@@ -14,10 +14,10 @@ def data_saver(
     filename: str,
 ) -> None:
     """Saves a dataset to a specific path."""
-    if not Path.exists(path):
+    if not Path(path).exists():
         Path.mkdir(path, exist_ok=True, parents=True)
 
-    full_path = Path.join(path, filename)
+    full_path = Path(path, filename)
     if filename.endswith(".csv"):
         dataset.to_csv(full_path, index=False)
     elif filename.endswith(".parquet"):

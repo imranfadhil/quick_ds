@@ -7,6 +7,9 @@ data/mysql/**
 data/postgres/**
 data/zenml-server/**
 
+# Remove if want to sync custom configs
+configs/**
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

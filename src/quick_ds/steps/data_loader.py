@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 def data_loader(
     random_state: int,
     is_inference: bool = False,
-    target: str = "target",
+    targets: list[str] | None = None,
     path: str | None = None,
 ) -> Annotated[pd.DataFrame, "dataset"]:
     """Dataset reader step.
@@ -46,7 +46,7 @@ def data_loader(
         random_state: Random state for sampling
         is_inference: If `True` subset will be returned and target column
             will be removed from dataset.
-        target: Name of target columns in dataset.
+        targets: Name of target columns in dataset.
         path: Path to dataset file (csv or parquet). If None, internal
             breast cancer dataset will be used.
 
@@ -54,24 +54,24 @@ def data_loader(
         The dataset artifact as Pandas DataFrame and name of target column.
     """
     if path is None:
-        path = Path.join(Path.getcwd(), "data", "01_raw")
+        path = Path(Path.getcwd(), "data", "01_raw")
 
-    if not Path.exists(path):
+    if not Path(path).exists():
         msg = f"Dataset not found at {path}"
         raise FileNotFoundError(msg)
 
-    if Path.is_dir(path):
-        files = Path.iterdir(path)
+    if Path(path).is_dir():
+        files = Path(path).iterdir()
         csv_files = [f for f in files if f.endswith(".csv")]
         if len(csv_files) == 1:
-            path = Path.join(path, csv_files[0])
+            path = Path(path, csv_files[0])
         elif len(csv_files) > 1:
             msg = f"Multiple CSV files found in {path}. Please specify the file."
             raise ValueError(msg)
 
     if path.endswith(".csv"):
         dataset = pd.read_csv(path)
-    elif path.endswith(".parquet") or Path.is_dir(path):
+    elif path.endswith(".parquet") or Path(path).is_dir():
         dataset = pd.read_parquet(path)
     else:
         msg = f"Unsupported file format for path: {path}"
@@ -81,8 +81,9 @@ def data_loader(
     inference_subset = dataset.sample(inference_size, random_state=random_state)
     if is_inference:
         dataset = inference_subset
-        if target in dataset.columns:
-            dataset = dataset.drop(columns=target)
+        for target in targets:
+            if target in dataset.columns:
+                dataset = dataset.drop(columns=target)
     else:
         dataset = dataset.drop(inference_subset.index)
     dataset = dataset.reset_index(drop=True)

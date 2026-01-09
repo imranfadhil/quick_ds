@@ -92,7 +92,8 @@ Examples:
 )
 @click.option(
     "--train-config-file",
-    default="training_rf.yaml",
+    "-c",
+    default="training_rfr.yaml",
     type=click.STRING,
     help="The name of the train config file.",
 )
@@ -123,22 +124,11 @@ Examples:
     "If not specified, a new version will be created.",
 )
 @click.option(
-    "--feature-pipeline",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that creates the dataset.",
-)
-@click.option(
-    "--train-pipeline",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that trains the model.",
-)
-@click.option(
-    "--inference-pipeline",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that performs inference.",
+    "--pipeline",
+    "-p",
+    type=click.Choice(["feature", "train", "inference", "all"]),
+    default=None,
+    help="Pipeline to run",
 )
 @click.option(
     "--use-cache",
@@ -146,34 +136,14 @@ Examples:
     default=False,
     help="Disable caching for the pipeline run.",
 )
-@click.option(
-    "--raw-data-path",
-    default="data/01_raw",
-    help="Path to raw data for feature engineering.",
-)
-@click.option(
-    "--intermediate-data-path",
-    default="data/02_intermediate",
-    help="Path to save intermediate data from feature engineering.",
-)
-@click.option(
-    "--primary-data-path",
-    default="data/03_primary",
-    help="Path to primary data for training.",
-)
 def zenml(
-    train_config_file: str = "training_rf.yaml",
+    train_config_file: str = "training_rfr.yaml",
     train_dataset_name: str = "dataset_trn",
     train_dataset_version_name: str | None = None,
     test_dataset_name: str = "dataset_tst",
     test_dataset_version_name: str | None = None,
-    feature_pipeline: bool = False,
-    train_pipeline: bool = False,
-    inference_pipeline: bool = False,
+    pipeline: str | None = None,
     use_cache: bool = False,
-    raw_data_path: str = "data/01_raw",
-    intermediate_data_path: str = "data/02_intermediate",
-    primary_data_path: str = "data/03_primary",
 ):
     """Main entry point for the pipeline execution.
 
@@ -191,9 +161,7 @@ def zenml(
         test_dataset_name: The name of the test dataset produced by feature engineering.
         test_dataset_version_name: Version of the test dataset produced by feature engineering.
             If not specified, a new version will be created.
-        feature_pipeline: Whether to run the pipeline that creates the dataset.
-        train_pipeline: Whether to run the pipeline that trains the model.
-        inference_pipeline: Whether to run the pipeline that performs inference.
+        pipeline: Pipeline to run.
         use_cache: If `True` cache will be used.
         raw_data_path: Path to raw data.
         intermediate_data_path: Path to save intermediate data.
@@ -218,15 +186,12 @@ def zenml(
         logger.info("Configs copied to %s", config_folder)
 
     # Execute Feature Engineering Pipeline
-    if feature_pipeline:
+    if pipeline in ["feature", "all"]:
         pipeline_args = {}
         if not use_cache:
             pipeline_args["enable_cache"] = False
         pipeline_args["config_path"] = Path(config_folder, "feature_engineering.yaml")
-        run_args_feature = {
-            "dataset_path": raw_data_path,
-            "output_path": intermediate_data_path,
-        }
+        run_args_feature = {}
         feature_engineering.with_options(**pipeline_args)(**run_args_feature)
         logger.info("Feature Engineering pipeline finished successfully!\n")
 
@@ -244,8 +209,8 @@ def zenml(
         )
 
     # Execute Train Pipeline
-    if train_pipeline:
-        run_args_train = {"dataset_path": primary_data_path}
+    if pipeline in ["train", "all"]:
+        run_args_train = {}
 
         # If train_dataset_version_name is specified, use versioned artifacts
         if train_dataset_version_name or test_dataset_version_name:
@@ -269,9 +234,11 @@ def zenml(
             pipeline_args["enable_cache"] = False
         pipeline_args["config_path"] = Path(config_folder, train_config_file)
         training.with_options(**pipeline_args)(**run_args_train)
-        logger.info("Training pipeline with SGD finished successfully!\n\n")
+        logger.info(
+            "Training pipeline with %s finished successfully!\n\n", train_config_file
+        )
 
-    if inference_pipeline:
+    if pipeline in ["inference", "all"]:
         run_args_inference = {}
         pipeline_args = {"enable_cache": False}
         pipeline_args["config_path"] = Path(config_folder, "inference.yaml")

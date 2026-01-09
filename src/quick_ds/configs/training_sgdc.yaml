@@ -9,14 +9,15 @@ settings:
 
 # configuration of the Model Control Plane
 model:
-  name: breast_cancer_classifier
-  version: rf
+  name: sand_classifier
+  version: sgdc
   license: Apache 2.0
-  description: A breast cancer classifier
-  tags: ["breast_cancer", "classifier"]
+  description: A sand flag classifier
+  tags: ["sand_flag", "classifier"]
 
 # Configure the pipeline
 parameters:
-  target: "target"
-  model_type: "rf"  # Choose between rf/sgd
-  dataset_path: null
+  targets: [SAND_FLAG]
+  model_type: "sgdc"
+  dataset_path: data\01_raw\raw_data.csv
+  score_thold: 0.7

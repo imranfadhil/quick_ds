@@ -24,18 +24,31 @@ from zenml.logger import get_logger
 from quick_ds.pipelines import (
     feature_engineering,
 )
-from quick_ds.steps import model_evaluator, model_promoter, model_trainer
+from quick_ds.steps import (
+    MODEL_OPTIONS,
+    classifier_model_evaluator,
+    model_promoter,
+    model_trainer,
+    regressor_model_evaluator,
+)
 
 logger = get_logger(__name__)
+
+EVALUATOR = {
+    "classifier": classifier_model_evaluator,
+    "regressor": regressor_model_evaluator,
+}
 
 
 @pipeline
 def training(
     train_dataset_id: UUID | None = None,
     test_dataset_id: UUID | None = None,
-    target: str | None = "target",
+    targets: list[str] | None = None,
+    drop_columns: list[str] | None = None,
     model_type: str | None = "sgd",
     dataset_path: str | None = None,
+    score_thold: float = 0.5,
 ):
     """
     Model training pipeline.
@@ -49,29 +62,38 @@ def training(
     Args:
         train_dataset_id: ID of the train dataset produced by feature engineering.
         test_dataset_id: ID of the test dataset produced by feature engineering.
-        target: Name of target column in dataset.
+        targets: Name of target columns in dataset.
         model_type: The type of model to train.
+        dataset_path: Path to dataset file (csv or parquet).
+        score_thold: Threshold for model promotion.
     """
     # Link all the steps together by calling them and passing the output
     # of one step as the input of the next step.
 
     # Execute Feature Engineering Pipeline
-    if train_dataset_id is None or test_dataset_id is None:
-        dataset_trn, dataset_tst = feature_engineering()
-    elif dataset_path is not None:
-        dataset_trn, dataset_tst = feature_engineering(dataset_path=dataset_path)
+    if (
+        train_dataset_id is None or test_dataset_id is None
+    ) and dataset_path is not None:
+        dataset_trn, dataset_tst = feature_engineering(
+            drop_columns=drop_columns, targets=targets, dataset_path=dataset_path
+        )
     else:
         client = Client()
         dataset_trn = client.get_artifact_version(name_id_or_prefix=train_dataset_id)
         dataset_tst = client.get_artifact_version(name_id_or_prefix=test_dataset_id)
 
-    model = model_trainer(dataset_trn=dataset_trn, target=target, model_type=model_type)
+    model = model_trainer(
+        dataset_trn=dataset_trn, targets=targets, model_type=model_type
+    )
 
-    acc = model_evaluator(
+    model_class = next(k for k, v in MODEL_OPTIONS.items() if model_type in v)
+    model_evaluator = EVALUATOR[model_class]
+
+    score = model_evaluator(
         model=model,
         dataset_trn=dataset_trn,
         dataset_tst=dataset_tst,
-        target=target,
+        targets=targets,
     )
 
-    model_promoter(accuracy=acc)
+    model_promoter(model_class=model_class, score=score, score_thold=score_thold)

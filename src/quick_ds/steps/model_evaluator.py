@@ -16,7 +16,8 @@
 #
 
 import pandas as pd
-from sklearn.base import ClassifierMixin
+from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.metrics import f1_score, mean_absolute_error
 from zenml import log_metadata, step
 from zenml.client import Client
 from zenml.logger import get_logger
@@ -25,13 +26,11 @@ logger = get_logger(__name__)
 
 
 @step
-def model_evaluator(
+def classifier_model_evaluator(
     model: ClassifierMixin,
     dataset_trn: pd.DataFrame,
     dataset_tst: pd.DataFrame,
-    min_train_accuracy: float = 0.0,
-    min_test_accuracy: float = 0.0,
-    target: str = "target",
+    targets: list[str] | None = None,
 ) -> float:
     """Evaluate a trained model.
 
@@ -61,47 +60,68 @@ def model_evaluator(
         model: The pre-trained model artifact.
         dataset_trn: The train dataset.
         dataset_tst: The test dataset.
-        min_train_accuracy: Minimal acceptable training accuracy value.
-        min_test_accuracy: Minimal acceptable testing accuracy value.
-        target: Name of target column in dataset.
+        targets: Name of target columns in dataset.
 
     Returns:
-        The model accuracy on the test set.
+        The model F1 score on the test set.
     """
-    # Calculate the model accuracy on the train and test set
-    trn_acc = model.score(
-        dataset_trn.drop(columns=[target]),
-        dataset_trn[target],
-    )
-    tst_acc = model.score(
-        dataset_tst.drop(columns=[target]),
-        dataset_tst[target],
-    )
-    logger.info("Train accuracy=%.2f%%", trn_acc * 100)
-    logger.info("Test accuracy=%.2f%%", tst_acc * 100)
-
-    messages = []
-    if trn_acc < min_train_accuracy:
-        messages.append(
-            f"Train accuracy {trn_acc * 100:.2f}% is below {min_train_accuracy * 100:.2f}% !"
-        )
-    if tst_acc < min_test_accuracy:
-        messages.append(
-            f"Test accuracy {tst_acc * 100:.2f}% is below {min_test_accuracy * 100:.2f}% !"
-        )
-    else:
-        for message in messages:
-            logger.warning(message)
+    # Calculate the model F1 score on the train and test set
+    trn_pred = model.predict(dataset_trn.drop(columns=targets))
+    trn_f1 = f1_score(dataset_trn[targets], trn_pred, average="weighted")
+    tst_pred = model.predict(dataset_tst.drop(columns=targets))
+    tst_f1 = f1_score(dataset_tst[targets], tst_pred, average="weighted")
+    logger.info("Train F1=%.2f%%", trn_f1 * 100)
+    logger.info("Test F1=%.2f%%", tst_f1 * 100)
 
     client = Client()
     latest_classifier = client.get_artifact_version("sklearn_classifier")
 
     log_metadata(
         metadata={
-            "train_accuracy": float(trn_acc),
-            "test_accuracy": float(tst_acc),
+            "train_f1": float(trn_f1),
+            "test_f1": float(tst_f1),
         },
         artifact_version_id=latest_classifier.id,
     )
 
-    return float(tst_acc)
+    return float(tst_f1)
+
+
+@step
+def regressor_model_evaluator(
+    model: RegressorMixin,
+    dataset_trn: pd.DataFrame,
+    dataset_tst: pd.DataFrame,
+    targets: list[str] | None = None,
+) -> float:
+    """Evaluate a trained regression model.
+
+    Args:
+        model: The pre-trained regression model artifact.
+        dataset_trn: The train dataset.
+        dataset_tst: The test dataset.
+        targets: Name of target column in dataset.
+
+    Returns:
+        The model MAE on the test set.
+    """
+    # Calculate the model MAE on the train and test set
+    trn_pred = model.predict(dataset_trn.drop(columns=targets))
+    trn_mae = mean_absolute_error(dataset_trn[targets], trn_pred)
+    tst_pred = model.predict(dataset_tst.drop(columns=targets))
+    tst_mae = mean_absolute_error(dataset_tst[targets], tst_pred)
+    logger.info("Train MAE=%.2f", trn_mae)
+    logger.info("Test MAE=%.2f", tst_mae)
+
+    client = Client()
+    latest_model = client.get_artifact_version("sklearn_classifier")
+
+    log_metadata(
+        metadata={
+            "train_mae": float(trn_mae),
+            "test_mae": float(tst_mae),
+        },
+        artifact_version_id=latest_model.id,
+    )
+
+    return float(tst_mae)

@@ -1,0 +1,24 @@
+# environment configuration
+settings:
+  docker:
+    required_integrations:
+      - sklearn
+      - pandas
+    requirements:
+      - pyarrow
+
+# configuration of the Model Control Plane
+model:
+  name: porosity_regressor
+  version: rfr
+  license: Apache 2.0
+  description: A sand flag regressor
+  tags: ["sand_flag", "regressor"]
+
+# Configure the pipeline
+parameters:
+  targets: [PORD, VSH]
+  drop_columns: [DEPTH, GRMIN, GRMAX, BS, M, N, PERF_FLAG, RHOFL, RHOMA, TEMP]
+  model_type: rfr
+  dataset_path: data\01_raw\raw_data.csv
+  score_thold: 0.1

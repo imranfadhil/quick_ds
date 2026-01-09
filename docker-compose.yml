@@ -48,7 +48,7 @@ services:
       - ZENML_SERVER_AUTO_ACTIVATE=1
       - ZENML_DEFAULT_USER_NAME=admin
       - ZENML_DEFAULT_USER_PASSWORD=${ZENML_DEFAULT_USER_PASSWORD}
-      - ZENML_STORE_URL=${ZENML_STORE_URL}
+      - ZENML_STORE_URL=mysql://root:${MYSQL_ROOT_PASSWORD}@mysql:3306/${MYSQL_DATABASE}
     depends_on:
       mysql:
         condition: service_healthy
