@@ -42,6 +42,7 @@ except metadata.PackageNotFoundError:
 
 
 FRONTEND_DIR = Path(__file__).parent / "apps" / "ui"
+BACKEND_DIR = Path(__file__).parent / "apps" / "api"
 
 
 @click.group()
@@ -70,23 +71,19 @@ Examples:
 
   \b
   # Run the feature engineering pipeline
-    python run.py --feature-pipeline
-  
+    python main.py --pipeline feature
+
   \b
   # Run the training pipeline
-    python run.py --training-pipeline
-
-  \b 
-  # Run the training pipeline with versioned artifacts
-    python run.py --training-pipeline --train-dataset-version-name=1 --test-dataset-version-name=1
+    python main.py --pipeline train
 
   \b
   # Run the inference pipeline
-    python run.py --inference-pipeline
-
-  \b
-  # Deploy a model locally with FastAPI
-    python run.py --deploy-locally --deployment-model-name=my_model
+    python main.py --pipeline inference
+  
+  \b 
+  # Run the training pipeline with versioned artifacts
+    python main.py --pipeline train --train-dataset-version-name=1 --test-dataset-version-name=1
 
 """
 )
@@ -155,6 +152,7 @@ def zenml(
       * launching the pipeline
 
     Args:
+        train_config_file: The name of the train config file.
         train_dataset_name: The name of the train dataset produced by feature engineering.
         train_dataset_version_name: Version of the train dataset produced by feature engineering.
             If not specified, a new version will be created.
@@ -163,17 +161,6 @@ def zenml(
             If not specified, a new version will be created.
         pipeline: Pipeline to run.
         use_cache: If `True` cache will be used.
-        raw_data_path: Path to raw data.
-        intermediate_data_path: Path to save intermediate data.
-        primary_data_path: Path to primary data.
-        deploy_locally: Whether to run the pipeline that deploys a model locally with FastAPI.
-        deployment_model_name: Name of the model to deploy locally.
-        deployment_model_stage: Stage of the model to deploy.
-        deployment_model_artifact_name: Name of the model artifact to load.
-        deployment_preprocess_pipeline_name: Name of the preprocessing pipeline artifact to load.
-        deployment_port: Port to expose the deployment server on.
-        deployment_zenml_server: URL of the ZenML server for deployment.
-        deployment_zenml_api_key: API key for the ZenML server.
     """
     client = Client()
 
@@ -270,6 +257,14 @@ def zenml(
 def backend():
     # Change to frontend directory and run npm run dev
     cmd = "uvicorn quick_ds.apps.api.main:app --host 0.0.0.0 --port 5086 "
+    process = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True)
+    process.wait()
+
+
+@click.command()
+def frontend():
+    # Change to frontend directory and run npm run dev
+    cmd = " "
     process = Popen(
         cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True, cwd=str(FRONTEND_DIR)
     )
@@ -279,6 +274,7 @@ def backend():
 # Add commands to the CLI group
 cli.add_command(zenml)
 cli.add_command(backend)
+cli.add_command(frontend)
 
 if __name__ == "__main__":
     cli()
