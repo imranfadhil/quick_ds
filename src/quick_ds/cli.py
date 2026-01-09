@@ -91,6 +91,12 @@ Examples:
 """
 )
 @click.option(
+    "--train-config-file",
+    default="training_rf.yaml",
+    type=click.STRING,
+    help="The name of the train config file.",
+)
+@click.option(
     "--train-dataset-name",
     default="dataset_trn",
     type=click.STRING,
@@ -156,6 +162,7 @@ Examples:
     help="Path to primary data for training.",
 )
 def zenml(
+    train_config_file: str = "training_rf.yaml",
     train_dataset_name: str = "dataset_trn",
     train_dataset_version_name: str | None = None,
     test_dataset_name: str = "dataset_tst",
@@ -260,17 +267,9 @@ def zenml(
         pipeline_args = {}
         if not use_cache:
             pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = Path(config_folder, "training_sgd.yaml")
+        pipeline_args["config_path"] = Path(config_folder, train_config_file)
         training.with_options(**pipeline_args)(**run_args_train)
         logger.info("Training pipeline with SGD finished successfully!\n\n")
-
-        # Run the RF pipeline
-        pipeline_args = {}
-        if not use_cache:
-            pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = Path(config_folder, "training_rf.yaml")
-        training.with_options(**pipeline_args)(**run_args_train)
-        logger.info("Training pipeline with RF finished successfully!\n\n")
 
     if inference_pipeline:
         run_args_inference = {}
