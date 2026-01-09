@@ -35,6 +35,7 @@ def training(
     test_dataset_id: UUID | None = None,
     target: str | None = "target",
     model_type: str | None = "sgd",
+    dataset_path: str | None = None,
 ):
     """
     Model training pipeline.
@@ -57,6 +58,8 @@ def training(
     # Execute Feature Engineering Pipeline
     if train_dataset_id is None or test_dataset_id is None:
         dataset_trn, dataset_tst = feature_engineering()
+    elif dataset_path is not None:
+        dataset_trn, dataset_tst = feature_engineering(dataset_path=dataset_path)
     else:
         client = Client()
         dataset_trn = client.get_artifact_version(name_id_or_prefix=train_dataset_id)

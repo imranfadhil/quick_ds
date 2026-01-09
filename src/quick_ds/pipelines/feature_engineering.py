@@ -20,6 +20,7 @@ from zenml.logger import get_logger
 from quick_ds.steps import (
     data_loader,
     data_preprocessor,
+    data_saver,
     data_splitter,
 )
 
@@ -34,6 +35,8 @@ def feature_engineering(
     drop_columns: list[str] | None = None,
     target: str = "target",
     random_state: int = 17,
+    dataset_path: str | None = None,
+    output_path: str | None = None,
 ):
     """
     Feature engineering pipeline.
@@ -48,13 +51,15 @@ def feature_engineering(
         drop_columns: List of columns to drop from dataset
         target: Name of target column in dataset
         random_state: Random state to configure the data loader
+        dataset_path: Path to dataset file (csv or parquet).
+        output_path: Path to save the processed datasets.
 
     Returns:
         The processed datasets (dataset_trn, dataset_tst).
     """
     # Link all the steps together by calling them and passing the output
     # of one step as the input of the next step.
-    raw_data = data_loader(random_state=random_state, target=target)
+    raw_data = data_loader(random_state=random_state, target=target, path=dataset_path)
     dataset_trn, dataset_tst = data_splitter(
         dataset=raw_data,
         test_size=test_size,
@@ -68,4 +73,16 @@ def feature_engineering(
         target=target,
         random_state=random_state,
     )
+
+    if output_path:
+        data_saver(
+            dataset=dataset_trn,
+            path=output_path,
+            filename="dataset_trn.csv",
+        )
+        data_saver(
+            dataset=dataset_tst,
+            path=output_path,
+            filename="dataset_tst.csv",
+        )
     return dataset_trn, dataset_tst

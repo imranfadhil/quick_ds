@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import shutil
 import sys
 from importlib import metadata
 from pathlib import Path
@@ -56,7 +57,7 @@ def cli():
     Provides commands to run the web application, manage MLflow servers,
     and execute machine learning pipelines for training and prediction.
     """
-    pass
+    pass  # noqa: PIE790
 
 
 @click.command(
@@ -122,7 +123,7 @@ Examples:
     help="Whether to run the pipeline that creates the dataset.",
 )
 @click.option(
-    "--training-pipeline",
+    "--train-pipeline",
     is_flag=True,
     default=False,
     help="Whether to run the pipeline that trains the model.",
@@ -139,15 +140,33 @@ Examples:
     default=False,
     help="Disable caching for the pipeline run.",
 )
+@click.option(
+    "--raw-data-path",
+    default="data/01_raw",
+    help="Path to raw data for feature engineering.",
+)
+@click.option(
+    "--intermediate-data-path",
+    default="data/02_intermediate",
+    help="Path to save intermediate data from feature engineering.",
+)
+@click.option(
+    "--primary-data-path",
+    default="data/03_primary",
+    help="Path to primary data for training.",
+)
 def zenml(
     train_dataset_name: str = "dataset_trn",
     train_dataset_version_name: str | None = None,
     test_dataset_name: str = "dataset_tst",
     test_dataset_version_name: str | None = None,
     feature_pipeline: bool = False,
-    training_pipeline: bool = False,
+    train_pipeline: bool = False,
     inference_pipeline: bool = False,
     use_cache: bool = False,
+    raw_data_path: str = "data/01_raw",
+    intermediate_data_path: str = "data/02_intermediate",
+    primary_data_path: str = "data/03_primary",
 ):
     """Main entry point for the pipeline execution.
 
@@ -166,9 +185,12 @@ def zenml(
         test_dataset_version_name: Version of the test dataset produced by feature engineering.
             If not specified, a new version will be created.
         feature_pipeline: Whether to run the pipeline that creates the dataset.
-        training_pipeline: Whether to run the pipeline that trains the model.
+        train_pipeline: Whether to run the pipeline that trains the model.
         inference_pipeline: Whether to run the pipeline that performs inference.
         use_cache: If `True` cache will be used.
+        raw_data_path: Path to raw data.
+        intermediate_data_path: Path to save intermediate data.
+        primary_data_path: Path to primary data.
         deploy_locally: Whether to run the pipeline that deploys a model locally with FastAPI.
         deployment_model_name: Name of the model to deploy locally.
         deployment_model_stage: Stage of the model to deploy.
@@ -180,7 +202,13 @@ def zenml(
     """
     client = Client()
 
-    config_folder = Path(__file__).resolve().parent / "configs"
+    source_config_folder = Path(__file__).resolve().parent / "configs"
+    config_folder = Path.cwd() / "configs"
+
+    if not config_folder.exists():
+        logger.info("Configs folder not found in CWD. Copying default configs...")
+        shutil.copytree(source_config_folder, config_folder)
+        logger.info("Configs copied to %s", config_folder)
 
     # Execute Feature Engineering Pipeline
     if feature_pipeline:
@@ -188,7 +216,10 @@ def zenml(
         if not use_cache:
             pipeline_args["enable_cache"] = False
         pipeline_args["config_path"] = Path(config_folder, "feature_engineering.yaml")
-        run_args_feature = {}
+        run_args_feature = {
+            "dataset_path": raw_data_path,
+            "output_path": intermediate_data_path,
+        }
         feature_engineering.with_options(**pipeline_args)(**run_args_feature)
         logger.info("Feature Engineering pipeline finished successfully!\n")
 
@@ -205,9 +236,9 @@ def zenml(
             test_dataset_artifact.version,
         )
 
-    # Execute Training Pipeline
-    if training_pipeline:
-        run_args_train = {}
+    # Execute Train Pipeline
+    if train_pipeline:
+        run_args_train = {"dataset_path": primary_data_path}
 
         # If train_dataset_version_name is specified, use versioned artifacts
         if train_dataset_version_name or test_dataset_version_name:

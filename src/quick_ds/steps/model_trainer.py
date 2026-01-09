@@ -62,7 +62,8 @@ def model_trainer(
     elif model_type == "rf":
         model = RandomForestClassifier()
     else:
-        raise ValueError(f"Unknown model type {model_type}")
+        msg = f"Unknown model type {model_type}"
+        raise ValueError(msg)
     logger.info("Training model %s...", model)
 
     model.fit(

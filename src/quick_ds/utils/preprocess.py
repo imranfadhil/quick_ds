@@ -14,19 +14,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-from typing import Union
-
 import pandas as pd
 
 
 class NADropper:
     """Support class to drop NA values in sklearn Pipeline."""
 
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, **kwargs):  # noqa: ARG002
         return self
 
-    def transform(self, X: Union[pd.DataFrame, pd.Series]):
+    def transform(self, X: pd.DataFrame | pd.Series):
         return X.dropna()
 
 
@@ -36,10 +33,10 @@ class ColumnsDropper:
     def __init__(self, columns):
         self.columns = columns
 
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, **kwargs):  # noqa: ARG002
         return self
 
-    def transform(self, X: Union[pd.DataFrame, pd.Series]):
+    def transform(self, X: pd.DataFrame | pd.Series):
         return X.drop(columns=self.columns)
 
 
@@ -49,7 +46,7 @@ class DataFrameCaster:
     def __init__(self, columns):
         self.columns = columns
 
-    def fit(self, *args, **kwargs):
+    def fit(self, *args, **kwargs):  # noqa: ARG002
         return self
 
     def transform(self, X):

@@ -14,10 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+from pathlib import Path
 from typing import Annotated
 
 import pandas as pd
-from sklearn.datasets import load_breast_cancer
 from zenml import step
 from zenml.logger import get_logger
 
@@ -26,7 +26,10 @@ logger = get_logger(__name__)
 
 @step
 def data_loader(
-    random_state: int, is_inference: bool = False, target: str = "target"
+    random_state: int,
+    is_inference: bool = False,
+    target: str = "target",
+    path: str | None = None,
 ) -> Annotated[pd.DataFrame, "dataset"]:
     """Dataset reader step.
 
@@ -44,17 +47,42 @@ def data_loader(
         is_inference: If `True` subset will be returned and target column
             will be removed from dataset.
         target: Name of target columns in dataset.
+        path: Path to dataset file (csv or parquet). If None, internal
+            breast cancer dataset will be used.
 
     Returns:
         The dataset artifact as Pandas DataFrame and name of target column.
     """
-    dataset = load_breast_cancer(as_frame=True)
-    inference_size = int(len(dataset.target) * 0.05)
-    dataset: pd.DataFrame = dataset.frame
+    if path is None:
+        path = Path.join(Path.getcwd(), "data", "01_raw")
+
+    if not Path.exists(path):
+        msg = f"Dataset not found at {path}"
+        raise FileNotFoundError(msg)
+
+    if Path.is_dir(path):
+        files = Path.iterdir(path)
+        csv_files = [f for f in files if f.endswith(".csv")]
+        if len(csv_files) == 1:
+            path = Path.join(path, csv_files[0])
+        elif len(csv_files) > 1:
+            msg = f"Multiple CSV files found in {path}. Please specify the file."
+            raise ValueError(msg)
+
+    if path.endswith(".csv"):
+        dataset = pd.read_csv(path)
+    elif path.endswith(".parquet") or Path.is_dir(path):
+        dataset = pd.read_parquet(path)
+    else:
+        msg = f"Unsupported file format for path: {path}"
+        raise ValueError(msg)
+
+    inference_size = int(len(dataset) * 0.05)
     inference_subset = dataset.sample(inference_size, random_state=random_state)
     if is_inference:
         dataset = inference_subset
-        dataset = dataset.drop(columns=target)
+        if target in dataset.columns:
+            dataset = dataset.drop(columns=target)
     else:
         dataset = dataset.drop(inference_subset.index)
     dataset = dataset.reset_index(drop=True)
