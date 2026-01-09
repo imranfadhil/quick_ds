@@ -37,6 +37,7 @@ dependencies = [
     "numpy>=1.26.4",
     "pandas>=2.3.3",
     "pyarrow>=10.0.1",
+    "pycaret>=2.2.2",
     "scikit-learn==1.6.1",
     "taipy>=3.0.0",
     "uvicorn>=0.40.0",

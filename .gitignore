@@ -3,6 +3,7 @@ data/02_intermediate/**
 data/03_primary/**
 data/06_models/**
 data/08_reporting/**
+data/mysql/**
 data/postgres/**
 data/zenml-server/**
 

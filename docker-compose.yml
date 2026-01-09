@@ -1,15 +1,19 @@
 services:
-  postgres:
-    image: pgvector/pgvector:pg17
-    restart: unless-stopped
-    volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+  mysql:
+    image: mysql:9.0
+    # NOTE: Change these credentials for a production deployment!
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
     ports:
-      - ${POSTGRES_PORT:-5432}:5432
+      - "3306:3306"
+    volumes:
+      - ./data/mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
       - qds-network
   
@@ -43,16 +47,13 @@ services:
     environment:
       - ZENML_SERVER_AUTO_ACTIVATE=1
       - ZENML_DEFAULT_USER_NAME=admin
-      - ZENML_DEFAULT_USER_PASSWORD=${POSTGRES_PASSWORD}
-    #   - ZENML_STORE_URL=${QDS_DATABASE_URL}
-    # links:
-    #   - postgres
-    # depends_on:
-    #   - postgres
-    # extra_hosts:
-    #   - "host.docker.internal:host-gateway"
-    volumes:
-      - ./data/zenml-server:/zenml/.zenconfig/local_stores/default_zen_store
+      - ZENML_DEFAULT_USER_PASSWORD=${ZENML_DEFAULT_USER_PASSWORD}
+      - ZENML_STORE_URL=${ZENML_STORE_URL}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - qds-network
 
   langflow:
     profiles:

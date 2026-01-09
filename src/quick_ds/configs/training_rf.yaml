@@ -17,4 +17,6 @@ model:
 
 # Configure the pipeline
 parameters:
+  target: "target"
   model_type: "rf"  # Choose between rf/sgd
+  dataset_path: null
