@@ -32,7 +32,7 @@ def data_preprocessor(
     drop_na: bool | None = None,
     normalize: bool | None = None,
     drop_columns: list[str] | None = None,
-    target: str = "target",
+    targets: list[str] | None = None,
 ) -> tuple[
     Annotated[pd.DataFrame, "dataset_trn"],
     Annotated[pd.DataFrame, "dataset_tst"],
@@ -61,7 +61,7 @@ def data_preprocessor(
         drop_na: If `True` all NA rows will be dropped.
         normalize: If `True` all numeric fields will be normalized.
         drop_columns: List of column names to drop.
-        target: Name of target column in dataset.
+        targets: Name of target columns in dataset.
 
     Returns:
         The processed datasets (dataset_trn, dataset_tst) and fitted `Pipeline` object.
@@ -82,7 +82,7 @@ def data_preprocessor(
 
     # Log metadata so we can load it in the inference pipeline
     log_metadata(
-        metadata={"random_state": random_state, "target": target},
+        metadata={"random_state": random_state, "targets": targets},
         artifact_name="preprocess_pipeline",
         infer_artifact=True,
     )

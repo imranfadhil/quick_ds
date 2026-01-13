@@ -8,4 +8,12 @@ settings:
       - pyarrow
 
 # pipeline configuration
-test_size: 0.35
+parameters:
+  test_size: 0.35
+  drop_na: False
+  normalize: False
+  drop_columns: null
+  targets: [SAND_FLAG, PORD]
+  random_state: 17
+  dataset_path: data\01_raw\raw_data.csv
+  output_path: data\02_intermediate

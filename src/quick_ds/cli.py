@@ -14,6 +14,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import shutil
 import sys
 from importlib import metadata
 from pathlib import Path
@@ -41,6 +42,7 @@ except metadata.PackageNotFoundError:
 
 
 FRONTEND_DIR = Path(__file__).parent / "apps" / "ui"
+BACKEND_DIR = Path(__file__).parent / "apps" / "api"
 
 
 @click.group()
@@ -56,7 +58,7 @@ def cli():
     Provides commands to run the web application, manage MLflow servers,
     and execute machine learning pipelines for training and prediction.
     """
-    pass
+    pass  # noqa: PIE790
 
 
 @click.command(
@@ -69,25 +71,28 @@ Examples:
 
   \b
   # Run the feature engineering pipeline
-    python run.py --feature-pipeline
-  
+    python main.py --pipeline feature
+
   \b
   # Run the training pipeline
-    python run.py --training-pipeline
-
-  \b 
-  # Run the training pipeline with versioned artifacts
-    python run.py --training-pipeline --train-dataset-version-name=1 --test-dataset-version-name=1
+    python main.py --pipeline train
 
   \b
   # Run the inference pipeline
-    python run.py --inference-pipeline
-
-  \b
-  # Deploy a model locally with FastAPI
-    python run.py --deploy-locally --deployment-model-name=my_model
+    python main.py --pipeline inference
+  
+  \b 
+  # Run the training pipeline with versioned artifacts
+    python main.py --pipeline train --train-dataset-version-name=1 --test-dataset-version-name=1
 
 """
+)
+@click.option(
+    "--train-config-file",
+    "-c",
+    default="training_rfr.yaml",
+    type=click.STRING,
+    help="The name of the train config file.",
 )
 @click.option(
     "--train-dataset-name",
@@ -116,22 +121,11 @@ Examples:
     "If not specified, a new version will be created.",
 )
 @click.option(
-    "--feature-pipeline",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that creates the dataset.",
-)
-@click.option(
-    "--training-pipeline",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that trains the model.",
-)
-@click.option(
-    "--inference-pipeline",
-    is_flag=True,
-    default=False,
-    help="Whether to run the pipeline that performs inference.",
+    "--pipeline",
+    "-p",
+    type=click.Choice(["feature", "train", "inference", "all"]),
+    default=None,
+    help="Pipeline to run",
 )
 @click.option(
     "--use-cache",
@@ -140,13 +134,12 @@ Examples:
     help="Disable caching for the pipeline run.",
 )
 def zenml(
+    train_config_file: str = "training_rfr.yaml",
     train_dataset_name: str = "dataset_trn",
     train_dataset_version_name: str | None = None,
     test_dataset_name: str = "dataset_tst",
     test_dataset_version_name: str | None = None,
-    feature_pipeline: bool = False,
-    training_pipeline: bool = False,
-    inference_pipeline: bool = False,
+    pipeline: str | None = None,
     use_cache: bool = False,
 ):
     """Main entry point for the pipeline execution.
@@ -159,31 +152,28 @@ def zenml(
       * launching the pipeline
 
     Args:
+        train_config_file: The name of the train config file.
         train_dataset_name: The name of the train dataset produced by feature engineering.
         train_dataset_version_name: Version of the train dataset produced by feature engineering.
             If not specified, a new version will be created.
         test_dataset_name: The name of the test dataset produced by feature engineering.
         test_dataset_version_name: Version of the test dataset produced by feature engineering.
             If not specified, a new version will be created.
-        feature_pipeline: Whether to run the pipeline that creates the dataset.
-        training_pipeline: Whether to run the pipeline that trains the model.
-        inference_pipeline: Whether to run the pipeline that performs inference.
+        pipeline: Pipeline to run.
         use_cache: If `True` cache will be used.
-        deploy_locally: Whether to run the pipeline that deploys a model locally with FastAPI.
-        deployment_model_name: Name of the model to deploy locally.
-        deployment_model_stage: Stage of the model to deploy.
-        deployment_model_artifact_name: Name of the model artifact to load.
-        deployment_preprocess_pipeline_name: Name of the preprocessing pipeline artifact to load.
-        deployment_port: Port to expose the deployment server on.
-        deployment_zenml_server: URL of the ZenML server for deployment.
-        deployment_zenml_api_key: API key for the ZenML server.
     """
     client = Client()
 
-    config_folder = Path(__file__).resolve().parent / "configs"
+    source_config_folder = Path(__file__).resolve().parent / "configs"
+    config_folder = Path.cwd() / "configs"
+
+    if not config_folder.exists():
+        logger.info("Configs folder not found in CWD. Copying default configs...")
+        shutil.copytree(source_config_folder, config_folder)
+        logger.info("Configs copied to %s", config_folder)
 
     # Execute Feature Engineering Pipeline
-    if feature_pipeline:
+    if pipeline in ["feature", "all"]:
         pipeline_args = {}
         if not use_cache:
             pipeline_args["enable_cache"] = False
@@ -205,8 +195,8 @@ def zenml(
             test_dataset_artifact.version,
         )
 
-    # Execute Training Pipeline
-    if training_pipeline:
+    # Execute Train Pipeline
+    if pipeline in ["train", "all"]:
         run_args_train = {}
 
         # If train_dataset_version_name is specified, use versioned artifacts
@@ -229,19 +219,13 @@ def zenml(
         pipeline_args = {}
         if not use_cache:
             pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = Path(config_folder, "training_sgd.yaml")
+        pipeline_args["config_path"] = Path(config_folder, train_config_file)
         training.with_options(**pipeline_args)(**run_args_train)
-        logger.info("Training pipeline with SGD finished successfully!\n\n")
+        logger.info(
+            "Training pipeline with %s finished successfully!\n\n", train_config_file
+        )
 
-        # Run the RF pipeline
-        pipeline_args = {}
-        if not use_cache:
-            pipeline_args["enable_cache"] = False
-        pipeline_args["config_path"] = Path(config_folder, "training_rf.yaml")
-        training.with_options(**pipeline_args)(**run_args_train)
-        logger.info("Training pipeline with RF finished successfully!\n\n")
-
-    if inference_pipeline:
+    if pipeline in ["inference", "all"]:
         run_args_inference = {}
         pipeline_args = {"enable_cache": False}
         pipeline_args["config_path"] = Path(config_folder, "inference.yaml")
@@ -273,6 +257,14 @@ def zenml(
 def backend():
     # Change to frontend directory and run npm run dev
     cmd = "uvicorn quick_ds.apps.api.main:app --host 0.0.0.0 --port 5086 "
+    process = Popen(cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True)
+    process.wait()
+
+
+@click.command()
+def frontend():
+    # Change to frontend directory and run npm run dev
+    cmd = " "
     process = Popen(
         cmd, stdout=sys.stdout, stderr=sys.stderr, shell=True, cwd=str(FRONTEND_DIR)
     )
@@ -282,6 +274,7 @@ def backend():
 # Add commands to the CLI group
 cli.add_command(zenml)
 cli.add_command(backend)
+cli.add_command(frontend)
 
 if __name__ == "__main__":
     cli()

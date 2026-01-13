@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 
 
 @pipeline
-def inference(random_state: int, target: str):
+def inference(random_state: int, target: str, dataset_path: str | None = None):
     """
     Model inference pipeline.
 
@@ -39,6 +39,7 @@ def inference(random_state: int, target: str):
     Args:
         random_state: Random state for reproducibility.
         target: Name of target column in dataset.
+        dataset_path: Path to dataset file (csv or parquet).
     """
     # Get the production model artifact
     model = get_pipeline_context().model.get_artifact("sklearn_classifier")
@@ -50,7 +51,9 @@ def inference(random_state: int, target: str):
 
     # Link all the steps together by calling them and passing the output
     #  of one step as the input of the next step.
-    df_inference = data_loader(random_state=random_state, is_inference=True)
+    df_inference = data_loader(
+        random_state=random_state, is_inference=True, path=dataset_path
+    )
     df_inference = inference_preprocessor(
         dataset_inf=df_inference,
         preprocess_pipeline=preprocess_pipeline,

@@ -14,27 +14,37 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 from typing import Annotated
 
 import pandas as pd
-from sklearn.base import ClassifierMixin
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.linear_model import SGDClassifier
+from sklearn.base import ClassifierMixin, RegressorMixin
+from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
+from sklearn.linear_model import SGDClassifier, SGDRegressor
 from zenml import ArtifactConfig, step
 from zenml.enums import ArtifactType
 from zenml.logger import get_logger
 
 logger = get_logger(__name__)
 
+MODEL_OPTIONS = {
+    "classifier": {
+        "sgdc": SGDClassifier(),
+        "rfc": RandomForestClassifier(),
+    },
+    "regressor": {
+        "sgdr": SGDRegressor(),
+        "rfr": RandomForestRegressor(),
+    },
+}
+
 
 @step
 def model_trainer(
     dataset_trn: pd.DataFrame,
-    model_type: str = "sgd",
-    target: str | None = "target",
+    model_type: str = "rfc",
+    targets: list[str] | None = None,
 ) -> Annotated[
-    ClassifierMixin,
+    ClassifierMixin | RegressorMixin,
     ArtifactConfig(name="sklearn_classifier", artifact_type=ArtifactType.MODEL),
 ]:
     """Configure and train a model on the training dataset.
@@ -47,7 +57,7 @@ def model_trainer(
     Args:
         dataset_trn: The preprocessed train dataset.
         model_type: The type of model to train.
-        target: The name of the target column in the dataset.
+        targets: The name of the target columns in the dataset.
 
     Returns:
         The trained model artifact.
@@ -57,16 +67,20 @@ def model_trainer(
     """
     # Initialize the model with the hyperparameters indicated in the step
     # parameters and train it on the training set.
-    if model_type == "sgd":
-        model = SGDClassifier()
-    elif model_type == "rf":
-        model = RandomForestClassifier()
-    else:
-        raise ValueError(f"Unknown model type {model_type}")
+
+    model = None
+    for models in MODEL_OPTIONS.values():
+        if model_type in models:
+            model = models[model_type]
+            break
+
+    if model is None:
+        msg = f"Unknown model type {model_type}"
+        raise ValueError(msg)
     logger.info("Training model %s...", model)
 
     model.fit(
-        dataset_trn.drop(columns=[target]),
-        dataset_trn[target],
+        dataset_trn.drop(columns=targets),
+        dataset_trn[targets],
     )
     return model
