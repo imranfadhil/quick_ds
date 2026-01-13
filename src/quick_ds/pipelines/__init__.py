@@ -15,6 +15,7 @@
 # limitations under the License.
 #
 
+from .dnn_training import dnn_training  # noqa: F401
 from .feature_engineering import feature_engineering  # noqa: F401
 from .inference import inference  # noqa: F401
 from .training import training  # noqa: F401

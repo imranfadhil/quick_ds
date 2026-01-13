@@ -19,6 +19,7 @@ from .data_loader import data_loader  # noqa: F401
 from .data_preprocessor import data_preprocessor  # noqa: F401
 from .data_saver import data_saver  # noqa: F401
 from .data_splitter import data_splitter  # noqa: F401
+from .dnn_model_trainer import dnn_trainer  # noqa: F401
 from .inference_predict import inference_predict  # noqa: F401
 from .inference_preprocessor import inference_preprocessor  # noqa: F401
 from .model_evaluator import (  # noqa: F401

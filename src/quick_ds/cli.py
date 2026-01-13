@@ -27,6 +27,7 @@ from zenml.client import Client
 from zenml.logger import get_logger
 
 from quick_ds.pipelines import (
+    dnn_training,
     feature_engineering,
     inference,
     training,
@@ -123,7 +124,7 @@ Examples:
 @click.option(
     "--pipeline",
     "-p",
-    type=click.Choice(["feature", "train", "inference", "all"]),
+    type=click.Choice(["feature", "train", "dnn_train", "inference", "all"]),
     default=None,
     help="Pipeline to run",
 )
@@ -223,6 +224,38 @@ def zenml(
         training.with_options(**pipeline_args)(**run_args_train)
         logger.info(
             "Training pipeline with %s finished successfully!\n\n", train_config_file
+        )
+
+    # Execute DNN Train Pipeline
+    if pipeline in ["dnn_train", "all"]:
+        run_args_train = {}
+
+        # If train_dataset_version_name is specified, use versioned artifacts
+        if train_dataset_version_name or test_dataset_version_name:
+            # However, both train and test dataset versions must be specified
+            assert train_dataset_version_name is not None
+            assert test_dataset_version_name is not None
+            train_dataset_artifact_version = client.get_artifact_version(
+                train_dataset_name, train_dataset_version_name
+            )
+            # If train dataset is specified, test dataset must be specified
+            test_dataset_artifact_version = client.get_artifact_version(
+                test_dataset_name, test_dataset_version_name
+            )
+            # Use versioned artifacts
+            run_args_train["train_dataset_id"] = train_dataset_artifact_version.id
+            run_args_train["test_dataset_id"] = test_dataset_artifact_version.id
+
+        # Run the DNN pipeline
+        pipeline_args = {}
+        if not use_cache:
+            pipeline_args["enable_cache"] = False
+        pipeline_args["config_path"] = Path(config_folder, train_config_file)
+
+        dnn_training.with_options(**pipeline_args)(**run_args_train)
+        logger.info(
+            "DNN Training pipeline with %s finished successfully!\n\n",
+            train_config_file,
         )
 
     if pipeline in ["inference", "all"]:
