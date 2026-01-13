@@ -49,6 +49,12 @@ Homepage = "y"
 Discussions = "y/discussions"
 Changelog = "y/releases"
 
+[project.optional-dependencies]
+dnn = [
+    "lightning>=2.6.0",
+    "torchmetrics>=1.8.2",
+]
+
 
 [dependency-groups]
 test = [
