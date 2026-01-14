@@ -27,7 +27,6 @@ from zenml.client import Client
 from zenml.logger import get_logger
 
 from quick_ds.pipelines import (
-    dnn_training,
     feature_engineering,
     inference,
     training,
@@ -228,6 +227,8 @@ def zenml(
 
     # Execute DNN Train Pipeline
     if pipeline in ["dnn_train", "all"]:
+        from quick_ds.pipelines import dnn_training
+
         run_args_train = {}
 
         # If train_dataset_version_name is specified, use versioned artifacts

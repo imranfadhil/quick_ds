@@ -6,6 +6,25 @@ from zenml.enums import ArtifactType
 
 # Try to import PyTorch components, but make them optional
 try:
+    import platform
+    from pathlib import Path
+
+    if platform.system() == "Windows":
+        import ctypes
+        from importlib.util import find_spec
+
+        try:
+            if (
+                (spec := find_spec("torch"))
+                and spec.origin
+                and Path(
+                    dll_path := Path(Path(spec.origin).parent, "lib", "c10.dll")
+                ).exists
+            ):
+                ctypes.CDLL(str(dll_path))
+        except ImportError:
+            HAS_PYTORCH = False
+
     import torch
     import torch.nn as tnn
     import torch.nn.functional as F
@@ -18,7 +37,7 @@ except ImportError:
     HAS_PYTORCH = False
 
 
-class DNNModel(LightningModule):
+class DNNModel(LightningModule if HAS_PYTORCH else object):
     def __init__(self, input_dim: int, num_classes: int, hidden_dim: int = 64):
         super().__init__()
         self.save_hyperparameters()

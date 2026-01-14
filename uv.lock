@@ -3681,6 +3681,7 @@ dependencies = [
 [package.optional-dependencies]
 dnn = [
     { name = "lightning" },
+    { name = "torch" },
     { name = "torchmetrics" },
 ]
 
@@ -3715,6 +3716,7 @@ requires-dist = [
     { name = "pycaret", specifier = ">=2.2.2" },
     { name = "scikit-learn", specifier = "==1.6.1" },
     { name = "taipy", specifier = ">=3.0.0" },
+    { name = "torch", marker = "extra == 'dnn'", specifier = ">=2.9.1" },
     { name = "torchmetrics", marker = "extra == 'dnn'", specifier = ">=1.8.2" },
     { name = "uvicorn", specifier = ">=0.40.0" },
     { name = "zenml", extras = ["local"], specifier = ">=0.93.0" },
